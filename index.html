@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>원시별 키우기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: 밤하늘 관측소 속 탐구 게임 — 들뜨지 않되 신비롭게
+   IDEA: 성운 속 원시별이 자라 H-R도 위를 여행하는 관측 일지
+   PICTURE: 게임 화면 자체(성운 속 원시별), 이어서 별 + H-R도 2단 패널
+   COLOUR and TYPE: 깊은 보랏빛 우주, 성운 마젠타 + 청록, 별빛 금색은 한 곳만 / Do Hyeon + Noto Sans KR
+   LAYOUT: 상단 탭, 게임 화면이 첫 화면의 대부분, 600px 이하에서 세로 쌓기 */
+:root{color-scheme:dark;--bg:#0c0a1f;--bg2:#15122e;--panel:#1b1739;--line:#2e2858;--ink:#ecebff;--dim:#a9a5d6;--mag:#ff5fa2;--teal:#3fe0d0;--gold:#ffd166}
+:root[data-theme=light],:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Noto Sans KR",system-ui,sans-serif;overflow-x:clip}
+h1,h2,h3{font-family:"Do Hyeon","Noto Sans KR",sans-serif;font-weight:400;line-height:1.1;margin:0;text-wrap:balance}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 20px;padding:14px max(4vw,14px);background:linear-gradient(90deg,#1a1240,#0c0a1f 70%);border-bottom:1px solid var(--line)}
+header h1{font-size:30px}
+header h1 small{font-family:"Noto Sans KR";font-size:13px;color:var(--dim);margin-left:8px;font-weight:400}
+nav{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto}
+nav button{background:transparent;border:1px solid var(--line);border-radius:999px;padding:8px 14px;min-height:44px;color:var(--dim)}
+nav button[aria-current=true]{background:var(--teal);color:#08201d;border-color:var(--teal);font-weight:700}
+main{max-width:1240px;margin:0 auto;padding:18px max(3vw,12px) 40px}
+.view{display:none}.view.on{display:block}
+.btn{background:var(--mag);color:#2a0617;border:0;border-radius:12px;padding:10px 18px;min-height:44px;font-weight:700}
+.btn.alt{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.teal{background:var(--teal);color:#08201d}
+.btn:disabled{opacity:.4;cursor:default}
+.note{font-size:13px;color:var(--dim)}
+/* 게임 */
+.stage{position:relative;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:#07061a;height:min(68vh,620px);min-height:380px}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+.hud{position:absolute;left:0;right:0;top:0;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;padding:12px;pointer-events:none}
+.chip{background:rgba(12,10,31,.78);border:1px solid var(--line);border-radius:12px;padding:6px 12px;backdrop-filter:blur(4px)}
+.chip b{font-family:"Do Hyeon";font-size:28px;font-weight:400;line-height:1}
+.chip .k{display:block;font-size:12px;color:var(--dim)}
+.hud .sp{flex:1}
+.hud button{pointer-events:auto}
+.warn{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:rgba(255,95,162,.18);border:1px solid var(--mag);border-radius:999px;padding:6px 14px;font-size:14px;opacity:0;transition:opacity .4s;pointer-events:none;white-space:nowrap}
+.warn.on{opacity:1}
+.overlay{position:absolute;inset:0;display:flex;padding:16px;background:radial-gradient(circle at 50% 40%,rgba(30,20,70,.55),rgba(7,6,26,.92));overflow:auto}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px;max-width:620px;width:100%;margin:auto}
+.card h2{font-size:34px;margin-bottom:6px}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 14px}
+.pick{border:1px solid var(--line);background:var(--bg2);border-radius:999px;padding:8px 14px;min-height:44px}
+.pick[aria-pressed=true]{border-color:var(--teal);background:rgba(63,224,208,.15);color:var(--teal);font-weight:700}
+label.lab{font-size:14px;color:var(--dim);display:block;margin-top:6px}
+select{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:10px;min-height:44px;font-size:16px}
+/* 진화 */
+.evo{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:14px}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px;position:relative}
+.box h3{font-size:20px;margin-bottom:8px}
+.fig{position:relative;min-height:340px}
+.fig>canvas,.fig>svg{position:absolute;inset:0;width:100%;height:100%}
+.stagename{font-family:"Do Hyeon";font-size:clamp(22px,3vw,30px);min-height:2.3em;margin:10px 0 6px}
+.gauge{height:14px;background:var(--bg2);border-radius:99px;overflow:hidden;border:1px solid var(--line)}
+.gauge i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--teal),var(--gold),var(--mag))}
+.gl{display:flex;justify-content:space-between;gap:10px;font-size:14px;color:var(--dim);margin-top:6px;flex-wrap:wrap}
+.gl b{color:var(--ink);font-weight:700;white-space:nowrap}
+.ctrl{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.facts{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;font-size:15px;margin:10px 0}
+.facts dt{color:var(--dim)}.facts dd{margin:0}
+.ending{display:grid;grid-template-columns:160px minmax(0,1fr);gap:18px;align-items:start;margin-top:14px}
+.ending canvas{width:160px;height:160px;border-radius:14px;background:#06051a}
+.badge{display:inline-block;border-radius:999px;padding:3px 10px;font-size:13px;font-weight:700;margin-right:6px}
+.tip{border-left:3px solid var(--teal);padding:6px 12px;background:rgba(63,224,208,.07);border-radius:0 10px 10px 0;font-size:15px}
+/* 도감 */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.dex canvas{width:100%;height:150px;border-radius:12px;background:#06051a;display:block}
+.dex.locked canvas{filter:grayscale(1) brightness(.35)}
+.dex h3{font-size:24px;margin:10px 0 2px}
+.dex a{color:var(--teal)}
+/* 표 */
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left;vertical-align:top}
+th{color:var(--dim);font-weight:500;font-size:13px}
+td.n{text-align:right;white-space:nowrap}
+.scroll{overflow-x:auto}
+.labgrid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:14px}
+input[type=range]{width:100%;accent-color:var(--teal);min-height:44px}
+.big{font-family:"Do Hyeon";font-size:44px;line-height:1}
+.q{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px}
+.q h3{font-size:22px;margin-bottom:6px}
+.q ol,.q ul{margin:6px 0;padding-left:1.3em}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--teal);color:#08201d;padding:10px 18px;border-radius:999px;font-weight:700;opacity:0;transition:opacity .3s;pointer-events:none;z-index:9}
+.toast.on{opacity:1}
+@media(max-width:820px){.evo,.labgrid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){
+ header h1{font-size:26px} nav{margin-left:0}
+ .stage{height:76vh;min-height:540px}
+ .chip b{font-size:22px}
+ .card{padding:16px}.card h2{font-size:26px}
+ .ending{grid-template-columns:minmax(0,1fr)}
+ .ending canvas{width:120px;height:120px}
+ table{font-size:13px}
+ .stack thead{display:none}.stack tr{display:grid;padding-block:8px;border-bottom:1px solid var(--line)}.stack td{display:flow-root;border:0;padding:2px 0;padding-inline-start:7.5em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:7em;margin-inline-start:-7.5em;color:var(--dim)}.stack td:empty{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<script>new MutationObserver(()=>{for(const c of document.querySelectorAll('.stack td:not([data-l])')){let i=0,p=c;while(p=p.previousElementSibling)i+=p.colSpan;c.dataset.l=c.closest('table').rows[0].cells[i]?.textContent||''}}).observe(document,{childList:true,subtree:true})</script>
+</head>
+<body>
+<header>
+ <h1>원시별 키우기<small>내가 모은 질량이 결정하는 별의 일생</small></h1>
+ <nav id="nav">
+  <button data-v="play" aria-current="true">게임</button>
+  <button data-v="lab">실험실</button>
+  <button data-v="dex">엔딩 도감</button>
+  <button data-v="log">기록지</button>
+  <button data-v="cards">탐구 카드</button>
+ </nav>
+</header>
+<main>
+<!-- 게임 -->
+<section class="view on" id="v-play">
+ <div class="stage" id="stage">
+  <canvas id="game"></canvas>
+  <div class="hud" id="hud" hidden>
+   <div class="chip"><span class="k">현재 질량</span><b id="hMass">0.02</b> M☉</div>
+   <div class="chip"><span class="k">남은 시간</span><b id="hTime">60</b>초</div>
+   <div class="chip" id="hMission" hidden><span class="k">미션</span><span id="hMissionT"></span></div>
+   <div class="chip" id="hHint" hidden><span class="k">이대로면</span><span id="hHintT"></span></div>
+   <span class="sp"></span>
+   <button class="btn teal" id="stopBtn">여기서 질량 확정</button>
+  </div>
+  <div class="warn" id="warn">복사압이 강해져 물질이 밀려나요!</div>
+  <div class="overlay" id="setup">
+   <div class="card">
+    <h2>성운 속 작은 원시별이 되어 보세요</h2>
+    <p style="margin:0 0 10px">손가락이나 마우스(키보드는 방향키)로 원시별을 움직여 성운 물질을 모으세요. 시간이 끝나면 모은 질량으로 별의 일생이 정해집니다.</p>
+    <label class="lab">미션</label>
+    <div class="row" id="missions"></div>
+    <div class="row" style="gap:14px;align-items:flex-end">
+     <div><label class="lab" for="predict">시작 전 예상: 어떤 별이 될까?</label>
+      <select id="predict"><option value="">선택 안 함</option></select></div>
+     <div><label class="lab" for="dur">제한 시간</label>
+      <select id="dur"><option value="30">30초</option><option value="60" selected>60초</option><option value="90">90초</option></select></div>
+     <label class="note" style="display:flex;gap:6px;align-items:center;min-height:44px"><input type="checkbox" id="hint"> 경계 힌트 보기(교사용)</label>
+    </div>
+    <button class="btn" id="startBtn" style="width:100%;font-size:18px">물질 모으기 시작</button>
+    <p class="note" style="margin:10px 0 0">실제 원시별은 돌아다니지 않고 중력으로 주변 가스를 끌어당겨요(강착). 이동은 게임 조작을 위한 장치입니다.</p>
+   </div>
+  </div>
+ </div>
+ <div id="evoWrap" hidden>
+  <div class="evo">
+   <div class="box"><h3 id="evoTitle">나의 별</h3><div class="fig" id="starFig" style="min-height:380px"><canvas id="starCv"></canvas></div></div>
+   <div class="box"><h3>H-R도 위의 일생 <span class="note" id="hrNote"></span></h3><div class="fig" id="hrFig" style="min-height:380px"><canvas id="hrCv"></canvas></div></div>
+  </div>
+  <div class="box" style="margin-top:14px">
+   <div class="stagename" id="stageName">—</div>
+   <div class="gauge"><i id="gBar"></i></div>
+   <div class="gl"><span>주계열 진입 후 나이 <b id="gAge">0년</b></span><span>주계열 수명 <b id="gLife">—</b></span></div>
+   <div class="ctrl">
+    <button class="btn alt" id="speedBtn">2배속</button>
+    <button class="btn alt" id="skipBtn">결과로 건너뛰기</button>
+    <button class="btn alt" id="replayBtn">다시 재생</button>
+    <span style="flex:1"></span>
+    <button class="btn" id="againBtn">새 원시별 키우기</button>
+   </div>
+   <div id="endCard" hidden></div>
+  </div>
+ </div>
+</section>
+
+<!-- 실험실 -->
+<section class="view" id="v-lab">
+ <h2 style="font-size:34px;margin-bottom:4px">실험실 — 질량을 직접 정해 비교하기</h2>
+ <p class="note" style="margin:0 0 12px">3차시용: 1·5·20 M☉처럼 질량을 골라 궤적을 겹쳐 그리고, 질량과 수명의 관계를 그래프로 확인하세요.</p>
+ <div class="labgrid">
+  <div class="box"><h3>H-R도 궤적 겹쳐 보기</h3><div class="fig" style="min-height:420px"><canvas id="labHr"></canvas></div></div>
+  <div class="box">
+   <div class="note">질량</div>
+   <div class="big"><span id="labM">1.00</span> M☉</div>
+   <input type="range" id="labR" min="-1.5" max="1.9" step="0.005" value="0" aria-label="질량">
+   <div class="row" id="presets"></div>
+   <div class="row">
+    <button class="btn teal" id="labAdd">궤적 추가</button>
+    <button class="btn" id="labPlay">이 질량으로 일생 재생</button>
+    <button class="btn alt" id="labClear">모두 지우기</button>
+   </div>
+   <div id="labNow" class="note"></div>
+  </div>
+ </div>
+ <div class="labgrid" style="margin-top:14px">
+  <div class="box"><h3>질량–주계열 수명 그래프 (로그 눈금)</h3><div class="fig" style="min-height:300px"><svg id="mlSvg"></svg></div></div>
+  <div class="box scroll"><h3>비교표</h3>
+   <table class="stack"><thead><tr><th>질량</th><th>표면 온도</th><th>광도</th><th>주계열 수명</th><th>최종 단계</th></tr></thead><tbody id="labTb"><tr><td colspan="5" class="note">궤적을 추가하면 여기에 쌓여요.</td></tr></tbody></table>
+  </div>
+ </div>
+</section>
+
+<!-- 도감 -->
+<section class="view" id="v-dex">
+ <h2 style="font-size:34px;margin-bottom:4px">엔딩 도감 <span class="note" id="dexCount"></span></h2>
+ <p class="note" style="margin:0 0 12px">게임에서 엔딩을 얻으면 실제 우주에서 관측된 천체가 열립니다. 수치는 대략값입니다.</p>
+ <div class="grid" id="dexGrid"></div>
+</section>
+
+<!-- 기록지 -->
+<section class="view" id="v-log">
+ <h2 style="font-size:34px;margin-bottom:4px">질량별 엔딩 기록지</h2>
+ <p class="note" style="margin:0 0 12px">플레이할 때마다 자동으로 기록됩니다. ‘표 복사’ 후 한글·엑셀·구글 시트에 붙여 넣어 학급 결과표를 만드세요. (이 기기 브라우저에만 저장됩니다)</p>
+ <div class="row"><button class="btn teal" id="copyBtn">표 복사</button><button class="btn alt" id="sortBtn">질량 순으로 정렬</button><button class="btn alt" id="clearBtn">기록 지우기</button></div>
+ <div class="box scroll"><table class="stack"><thead><tr><th>회차</th><th>미션</th><th>예상</th><th>달성 질량</th><th>엔딩</th><th>주계열 수명</th><th>예상과 비교</th></tr></thead><tbody id="logTb"></tbody></table></div>
+</section>
+
+<!-- 탐구 카드 -->
+<section class="view" id="v-cards">
+ <h2 style="font-size:34px;margin-bottom:12px">차시별 탐구 카드</h2>
+ <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr))">
+  <div class="q"><h3>1차시 · 별은 어떻게 태어날까?</h3><p class="note">핵심 발문: 별이 클수록 더 오래 살까?</p><ol><li>시작 전에 ‘예상’을 고르고 자유 플레이 3회 이상</li><li>기록지에서 예상과 결과가 달랐던 판을 찾기</li><li>가장 무거운 별과 가장 가벼운 별의 수명 비교하기</li></ol></div>
+  <div class="q"><h3>2차시 · 운명이 갈리는 질량</h3><p class="note">핵심 발문: 같은 엔딩이 나오는 질량의 범위는?</p><ol><li>모둠별 미션 카드로 목표 엔딩 만들기</li><li>기록지 ‘표 복사’로 학급 결과표에 모으기</li><li>질량 순으로 정렬해 엔딩이 바뀌는 경계값 추정</li><li>교과서 값과 비교하고 차이의 이유 토의</li></ol></div>
+  <div class="q"><h3>3차시 · 무거운 별은 왜 일찍 죽을까?</h3><p class="note">핵심 발문: 연료가 더 많은데 왜 더 빨리 쓸까?</p><ol><li>실험실에서 1·5·20 M☉ 궤적 겹쳐 그리기</li><li>질량이 20배일 때 광도는 몇 배인지 비교표에서 찾기</li><li>질량–수명 그래프로 규칙 설명하기 (연료 ∝ M, 소비 속도 ∝ 광도)</li></ol></div>
+  <div class="q"><h3>4차시 · AI 답변 검증하기</h3><p class="note">핵심 발문: 게임과 실제는 무엇이 다르고, 무엇은 믿을 수 있을까?</p><ol><li>생성형 AI에게 질문하기: “태양은 초신성이 될까?”, “블랙홀은 주변을 모두 빨아들일까?”, “무거운 별이 더 오래 살까?”</li><li>AI 답변을 게임 결과·도감 자료·교과서와 대조해 맞는 점/틀린 점/근거 없는 점 표시</li><li>게임 모델의 가정(이동하며 먹기, 경계값 고정, 쌍성 무시)과 한계 정리</li></ol></div>
+ </div>
+ <div class="box" style="margin-top:14px">
+  <h3>모델에 대해 (교사용)</h3>
+  <ul class="note" style="margin:0;padding-left:1.2em">
+   <li>주계열 광도·반지름은 질량–광도 관계(L∝M^2.3~3.5)와 질량–반지름 관계로 계산합니다.</li>
+   <li>주계열 수명은 1 M☉ 이하에서 t ≈ 100억 년 × (M/M☉)^−2.5, 그 이상은 항성 진화 모델 값에 가깝게 맞춘 대략값 표를 보간합니다.</li>
+   <li>진화 궤적은 MIST 등 항성 진화 모델의 모양을 단순화한 교육용 근사입니다. H-R도 배경 점은 Gaia DR3 분포를 흉내 낸 임시 점이며, 이름이 붙은 별은 문헌의 대략값입니다.</li>
+   <li>경계값(0.08 · 0.5 · 8 · 25 M☉)은 금속 함량 등에 따라 달라지는 근삿값입니다. 쌍성 상호작용, 자전, 질량 손실의 세부는 다루지 않습니다.</li>
+  </ul>
+ </div>
+</section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+{
+// ---------- 기본 도구 ----------
+const $=s=>document.querySelector(s);
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function gauss(r){return Math.sqrt(-2*Math.log(r()+1e-9))*Math.cos(2*Math.PI*r())}
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('on'),1800)}
+function fitCanvas(cv){const r=cv.getBoundingClientRect(),d=Math.min(window.devicePixelRatio||1,2);const w=Math.max(1,Math.round(r.width*d)),h=Math.max(1,Math.round(r.height*d));if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h}const c=cv.getContext('2d');c.setTransform(d,0,0,d,0,0);return{c,w:r.width,h:r.height}}
+function kRGB(K){const t=K/100;let r,g,b;if(t<=66){r=255;g=99.47*Math.log(t)-161.12;b=t<=19?0:138.52*Math.log(t-10)-305.04}else{r=329.7*Math.pow(t-60,-0.1332);g=288.12*Math.pow(t-60,-0.0755);b=255}return[clamp(r,0,255)|0,clamp(g,0,255)|0,clamp(b,0,255)|0]}
+const rgb=(a,al=1)=>`rgba(${a[0]},${a[1]},${a[2]},${al})`;
+function sig(x,n=2){if(x===0)return'0';const p=Math.pow(10,n-1-Math.floor(Math.log10(Math.abs(x))));return Math.round(x*p)/p}
+function fmtY(y){if(y==null)return'해당 없음';y=sig(y,2);if(y>=1e12)return`약 ${sig(y/1e12)}조 년`;if(y>=1e8)return`약 ${sig(y/1e8).toLocaleString()}억 년`;if(y>=1e4)return`약 ${sig(y/1e4).toLocaleString()}만 년`;return`약 ${Math.round(y).toLocaleString()}년`}
+function fmtM(m){return m<0.1?m.toFixed(3):m<10?m.toFixed(2):m.toFixed(1)}
+function fmtL(L){const v=Math.pow(10,L);return v>=1000?Math.round(v).toLocaleString():v>=1?sig(v,2):sig(v,2)}
+
+// ---------- 별의 물리 (교육용 근사) ----------
+const UNIVERSE=1.38e10;
+function endOf(M){return M<0.08?'bd':M<0.5?'rd':M<8?'wd':M<25?'ns':'bh'}
+function msL(M){return M<0.43?0.23*Math.pow(M,2.3):M<2?Math.pow(M,4):M<55?1.4*Math.pow(M,3.5):32000*M}
+function msR(M){return M<1?Math.pow(M,0.8):Math.pow(M,0.57)}
+function msT(M){return Math.min(48000,5772*Math.pow(msL(M)/(msR(M)**2),0.25))}
+const LT=[[1,1e10],[2,1.2e9],[3,3.5e8],[5,1e8],[8,4e7],[10,2.5e7],[15,1.3e7],[20,9e6],[25,7e6],[40,4.5e6],[60,3.5e6],[120,2.8e6]];
+function life(M){if(M<0.08)return null;if(M<=1)return 1e10*Math.pow(M,-2.5);for(let i=1;i<LT.length;i++){if(M<=LT[i][0]){const[a,ta]=LT[i-1],[b,tb]=LT[i];const f=(Math.log(M)-Math.log(a))/(Math.log(b)-Math.log(a));return Math.exp(lerp(Math.log(ta),Math.log(tb),f))}}return LT[LT.length-1][1]}
+
+function buildTrack(M){
+ const e=endOf(M),P=[],add=(T,L,age,stage,w)=>P.push({T,L,age,stage,w});
+ if(e==='bd'){const f=M/0.08,Tb=Math.log10(900+f*1700),Lb=-5.2+f*1.6;
+  add(3.45,-2.4,0,'원시별: 중력 수축으로 데워지는 중',0);
+  add(Tb+0.12,Lb+0.9,1e8,'중심 온도 부족 — 수소 핵융합 실패',1.4);
+  add(Tb,Lb,1e10,'갈색왜성: 희미하게 빛나며 천천히 식어 감',1.8);
+  return{M,e,P,t:null,final:'갈색왜성'}}
+ const T0=Math.log10(msT(M)),L0=Math.log10(msL(M)),t=life(M);
+ if(e==='rd'){
+  add(T0-0.08,L0+1.1,0,'원시별: 수축하며 주계열로 다가감',0);
+  add(T0,L0,0,'주계열성(적색왜성): 중심에서 수소 핵융합 시작',1.2);
+  add(T0+0.01,L0+0.05,UNIVERSE,'우주 나이 138억 년이 지나도 여전히 주계열성',3);
+  return{M,e,P,t,final:'적색왜성 (아직 끝이 없음)'}}
+ if(e==='wd'){const Lg=Math.max(3.3,L0+1.1);
+  add(T0-0.12,L0+0.8,0,'원시별: 수축하며 주계열로 다가감',0);
+  add(T0,L0,0,'주계열성: 중심핵에서 수소 핵융합',1.2);
+  add(T0-0.04,L0+0.25,t,'주계열 끝: 중심핵의 수소가 바닥남',3);
+  add(3.68,L0+0.45,t*1.04,'준거성: 중심핵은 수축, 바깥층은 팽창',0.9);
+  add(3.56,Lg,t*1.10,'적색거성: 크게 부풀고 표면 온도는 낮아짐',1.4);
+  add(3.68,Math.max(1.7,L0+0.9),t*1.11,'중심핵에서 헬륨 핵융합',0.9);
+  add(3.52,Lg+0.3,t*1.12,'점근거성: 바깥층이 불안정해짐',1);
+  add(5.0,Lg+0.1,t*1.12+3e4,'행성상 성운: 바깥층을 우주로 날려 보냄',1.3);
+  add(4.6,-1.2,t*1.12+1e7,'백색왜성: 남은 중심핵이 드러남',1);
+  add(4.15,-3.3,t*1.12+3e9,'백색왜성: 핵융합 없이 천천히 식어 감',1.4);
+  return{M,e,P,t,final:'백색왜성'}}
+ add(T0-0.06,L0+0.2,0,'원시별: 빠르게 수축해 주계열로',0);
+ add(T0,L0,0,'주계열성: 엄청난 속도로 수소 핵융합',1.2);
+ add(T0-0.08,L0+0.15,t,'주계열 끝: 중심핵의 수소가 바닥남',3);
+ if(M<40){add(4.0,L0+0.25,t*1.02,'청색 초거성: 바깥층이 팽창하기 시작',0.9);
+  add(3.56,L0+0.32,t*1.1,'적색 초거성: 중심핵에서 더 무거운 원소까지 핵융합',1.6)}
+ else{add(4.45,L0+0.25,t*1.06,'청색 초거성: 강한 항성풍으로 질량을 잃음',1.2);
+  add(4.7,L0+0.15,t*1.1,'볼프-레이에 별: 바깥층이 벗겨진 뜨거운 별',1.3)}
+ return{M,e,P,t,boom:true,final:e==='ns'?'중성자별':'블랙홀'}}
+
+// ---------- 엔딩 정보 ----------
+const ENDS={
+ bd:{name:'갈색왜성',color:'#d08a5a',range:'0.08 M☉ 미만',path:'수소 핵융합을 시작하지 못하고 천천히 식어 감',obj:'루먼 16 (WISE 1049−5319)',q:'Luhman 16',facts:[['거리','약 6.5광년'],['질량','각각 태양의 약 0.03배 (목성의 약 30배)'],['표면 온도','약 1,300 K'],['특징','태양계에서 가장 가까운 갈색왜성 쌍']],tip:'갈색왜성은 중력 수축으로 데워지기만 할 뿐, 중심 온도가 수소 핵융합에 필요한 온도에 이르지 못해요. 그래서 ‘별이 되지 못한 천체’라고 불려요.'},
+ rd:{name:'적색왜성',color:'#ff6b4a',range:'0.08 ~ 0.5 M☉',path:'주계열 상태로 아주 오래 머묾 (장래에 백색왜성이 될 것으로 예상)',obj:'프록시마 켄타우리',q:'Proxima Centauri',facts:[['거리','약 4.2광년'],['질량','태양의 약 0.12배'],['표면 온도','약 3,000 K'],['특징','태양 다음으로 가장 가까운 별']],tip:'적색왜성의 수명은 우주 나이(약 138억 년)보다 훨씬 길어요. 그래서 일생을 마친 적색왜성은 아직 우주에 하나도 없어요.'},
+ wd:{name:'백색왜성',color:'#cfe3ff',range:'0.5 ~ 8 M☉',path:'주계열성 → 적색거성 → 행성상 성운 → 백색왜성',obj:'시리우스 B · 고리 성운(M57)',q:'Ring Nebula M57',facts:[['시리우스 B 거리','약 8.6광년'],['시리우스 B 질량','태양과 비슷 (약 1.0배)'],['시리우스 B 크기','지구 정도'],['고리 성운','행성상 성운, 약 2,500광년']],tip:'태양 정도의 별은 초신성으로 폭발하지 않아요. 바깥층을 행성상 성운으로 내보내고, 중심핵이 지구만 한 백색왜성으로 남아요.'},
+ ns:{name:'중성자별',color:'#7fd4ff',range:'8 ~ 25 M☉',path:'주계열성 → 초거성 → 초신성 폭발 → 중성자별',obj:'게 성운과 게 펄서',q:'Crab Nebula',facts:[['거리','약 6,500광년'],['폭발 기록','1054년 동아시아 기록의 초신성'],['펄서 자전','1초에 약 30번'],['크기','지름 약 20 km에 태양보다 무거운 질량']],tip:'중성자별은 밀도가 엄청나서, 각설탕 하나만 한 부피가 수억 톤에 이르러요.'},
+ bh:{name:'블랙홀',color:'#b48cff',range:'25 M☉ 이상',path:'주계열성 → 초거성 → 초신성 폭발 또는 직접 붕괴 → 블랙홀',obj:'백조자리 X-1',q:'Cygnus X-1',facts:[['거리','약 7,000광년'],['블랙홀 질량','태양의 약 21배'],['동반성','태양의 약 40배인 청색 초거성'],['특징','처음으로 널리 인정된 항성 블랙홀']],tip:'블랙홀이 주변의 모든 것을 빨아들이는 것은 아니에요. 멀리서는 같은 질량의 별과 똑같은 중력을 미쳐요.'}
+};
+const KEYS=['bd','rd','wd','ns','bh'];
+
+// ---------- H-R도 ----------
+const XMAX=5.25,XMIN=3.05,YMAX=6.8,YMIN=-5.6;
+const NAMED=[['태양',5772,1,1,-5],['시리우스 A',9940,25,1,12],['시리우스 B',25000,0.056,1,-5],['프록시마',3042,0.0017,1,14],['베텔게우스',3600,1e5,-1,-6],['리겔',12100,1.2e5,1,-5],['베가',9600,40,-1,-6],['알데바란',3900,440,-1,-6],['아크투루스',4290,170,-1,14],['데네브',8500,2e5,1,-5],['안타레스',3500,7.5e4,-1,14],['바너드 별',3200,0.0035,-1,-5],['백조자리 X-1 동반성',31000,2e5,1,-5]];
+const BG=(()=>{const r=rng(7),a=[];
+ for(let i=0;i<1500;i++){const m=Math.exp(lerp(Math.log(0.1),Math.log(12),Math.pow(r(),1.8)));a.push([Math.log10(msT(m))+gauss(r)*0.02,Math.log10(msL(m))+0.3*r()+gauss(r)*0.08])}
+ for(let i=0;i<260;i++){const f=r();a.push([lerp(3.71,3.57,f)+gauss(r)*0.015,lerp(0.6,3.1,f)+gauss(r)*0.1])}
+ for(let i=0;i<120;i++)a.push([3.68+gauss(r)*0.012,1.7+gauss(r)*0.12]);
+ for(let i=0;i<40;i++){const f=r();a.push([lerp(3.7,4.3,f)+gauss(r)*0.05,lerp(3.5,5.4,r())])}
+ for(let i=0;i<180;i++){const T=lerp(3.75,4.45,Math.pow(r(),1.5));a.push([T+gauss(r)*0.015,-3.84+4*(T-3.761)+gauss(r)*0.12])}
+ return a})();
+function makeHR(cv){let bg=null,bw=0,bh=0;const pad={l:46,r:12,t:24,b:40};
+ const X=(T,w)=>pad.l+(XMAX-T)/(XMAX-XMIN)*(w-pad.l-pad.r),Y=(L,h)=>pad.t+(YMAX-L)/(YMAX-YMIN)*(h-pad.t-pad.b);
+ function background(w,h){const d=Math.min(window.devicePixelRatio||1,2);bg=document.createElement('canvas');bg.width=w*d;bg.height=h*d;const c=bg.getContext('2d');c.scale(d,d);bw=w;bh=h;
+  c.fillStyle='#0a0920';c.fillRect(0,0,w,h);
+  c.strokeStyle='#221d48';c.lineWidth=1;c.fillStyle='#8a86b8';c.font='11px "Noto Sans KR",sans-serif';
+  c.textAlign='center';for(const K of[40000,20000,10000,6000,4000,3000,2000]){const x=X(Math.log10(K),w);c.beginPath();c.moveTo(x,pad.t);c.lineTo(x,h-pad.b);c.stroke();if(w>420||[40000,10000,4000,2000].includes(K))c.fillText(K>=10000?K/1000+'천':K.toLocaleString(),x,h-pad.b+14)}
+  c.textAlign='right';for(let e=-4;e<=6;e+=2){const y=Y(e,h);c.beginPath();c.moveTo(pad.l,y);c.lineTo(w-pad.r,y);c.stroke();c.fillText(e===0?'1':'10'+['⁻⁴','⁻³','⁻²','⁻¹','','¹','²','³','⁴','⁵','⁶'][e+4],pad.l-6,y+4)}
+  c.textAlign='center';c.fillStyle='#a9a5d6';c.font='12px "Noto Sans KR",sans-serif';c.fillText('표면 온도 (K) — 왼쪽일수록 뜨거움',(pad.l+w-pad.r)/2,h-8);
+  c.save();c.translate(12,(pad.t+h-pad.b)/2);c.rotate(-Math.PI/2);c.fillText('광도 (태양 = 1)',0,0);c.restore();
+  const sp=[['O',4.6],['B',4.2],['A',3.9],['F',3.8],['G',3.74],['K',3.64],['M',3.5]];c.font='12px "Do Hyeon",sans-serif';for(const[s,T]of sp){c.fillStyle=rgb(kRGB(Math.pow(10,T)),.8);c.fillText(s,X(T,w),pad.t-8)}
+  for(const[T,L]of BG){if(T>XMAX||T<XMIN||L>YMAX||L<YMIN)continue;c.fillStyle=rgb(kRGB(Math.pow(10,T)),.32);c.fillRect(X(T,w)-.9,Y(L,h)-.9,1.8,1.8)}
+  c.font='11px "Noto Sans KR",sans-serif';c.textAlign='left';
+  for(const[n,K,L,dx,dy]of NAMED){const x=X(Math.log10(K),w),y=Y(Math.log10(L),h);c.fillStyle=rgb(kRGB(K));c.beginPath();c.arc(x,y,3,0,7);c.fill();c.strokeStyle='#0a0920';c.stroke();if(w>380||['태양','시리우스 B','베텔게우스','프록시마'].includes(n)){c.fillStyle='#cfcbf5';const rt=dx<0||x>w*0.8;c.textAlign=rt?'right':'left';c.fillText(n,x+(rt?-6:6),y+dy)}}
+  c.textAlign='left';c.fillStyle='#6f6aa3';c.fillText('배경 점: Gaia DR3 분포를 흉내 낸 임시 점 · 이름 붙은 별: 대략값',pad.l+4,h-pad.b-6)}
+ return{X,Y,draw(tracks,cur,annot){const{c,w,h}=fitCanvas(cv);if(w<20||h<20)return;if(!bg||bw!==w||bh!==h)background(w,h);c.drawImage(bg,0,0,w,h);
+  for(const tr of tracks){if(tr.pts.length<2)continue;c.strokeStyle=tr.color;c.lineWidth=2.4;c.lineJoin='round';c.beginPath();tr.pts.forEach((p,i)=>{const x=X(p.T,w),y=Y(p.L,h);i?c.lineTo(x,y):c.moveTo(x,y)});c.stroke();
+   if(tr.label){const p=tr.pts[1]||tr.pts[0];c.fillStyle=tr.color;c.font='bold 12px "Noto Sans KR",sans-serif';c.textAlign='left';c.fillText(tr.label,X(p.T,w)+8,Y(p.L,h)+16)}}
+  if(cur){const x=X(cur.T,w),y=Y(cur.L,h),g=c.createRadialGradient(x,y,0,x,y,16);g.addColorStop(0,cur.color);g.addColorStop(1,'transparent');c.fillStyle=g;c.beginPath();c.arc(x,y,16,0,7);c.fill();c.fillStyle='#fff';c.beginPath();c.arc(x,y,4,0,7);c.fill()}
+  if(annot){c.fillStyle='rgba(12,10,31,.85)';c.strokeStyle='#4a4290';const tw=Math.min(w-pad.l-30,300);c.fillRect(pad.l+10,h-pad.b-64,tw,44);c.strokeRect(pad.l+10,h-pad.b-64,tw,44);c.fillStyle='#ecebff';c.font='13px "Noto Sans KR",sans-serif';c.textAlign='left';annot.split('\n').forEach((s,i)=>c.fillText(s,pad.l+20,h-pad.b-45+i*18))}}}}
+
+// ---------- 별 그리기 (진화 패널·도감) ----------
+const starsBG=(()=>{const r=rng(3);return Array.from({length:140},()=>[r(),r(),r()])})();
+function skyBG(c,w,h){c.fillStyle='#06051a';c.fillRect(0,0,w,h);const g=c.createRadialGradient(w*.3,h*.35,0,w*.3,h*.35,w*.8);g.addColorStop(0,'rgba(120,40,120,.25)');g.addColorStop(.5,'rgba(30,60,120,.12)');g.addColorStop(1,'transparent');c.fillStyle=g;c.fillRect(0,0,w,h);for(const[a,b,s]of starsBG){c.fillStyle=`rgba(255,255,255,${.2+s*.5})`;c.fillRect(a*w,b*h,s*1.6,s*1.6)}}
+function glowStar(c,x,y,r,col,al=1){const g=c.createRadialGradient(x,y,0,x,y,r*2.6);g.addColorStop(0,rgb(col,al));g.addColorStop(.38,rgb(col,.5*al));g.addColorStop(1,rgb(col,0));c.fillStyle=g;c.beginPath();c.arc(x,y,r*2.6,0,7);c.fill();const g2=c.createRadialGradient(x-r*.3,y-r*.3,0,x,y,r);g2.addColorStop(0,'#fff');g2.addColorStop(.5,rgb(col));g2.addColorStop(1,rgb(col.map(v=>v*.75|0)));c.fillStyle=g2;c.beginPath();c.arc(x,y,r,0,7);c.fill()}
+function drawRemnant(c,w,h,key,t){const x=w/2,y=h/2,s=Math.min(w,h);
+ if(key==='bd'){glowStar(c,x,y,s*.16,[150,70,50],.8);c.strokeStyle='rgba(80,30,20,.5)';c.lineWidth=s*.02;for(let i=-1;i<=1;i++){c.beginPath();c.ellipse(x,y+i*s*.06,s*.15,s*.025,0,0,7);c.stroke()}}
+ else if(key==='rd'){glowStar(c,x,y,s*.13,kRGB(3100))}
+ else if(key==='wd'){for(let i=0;i<3;i++){c.strokeStyle=`rgba(${i?'90,220,210':'255,110,170'},${.5-i*.12})`;c.lineWidth=s*(.05-i*.012);c.beginPath();c.ellipse(x,y,s*(.3+i*.03),s*(.24+i*.025),.4,0,7);c.stroke()}glowStar(c,x,y,s*.035,[220,235,255])}
+ else if(key==='ns'){const g=c.createRadialGradient(x,y,0,x,y,s*.42);g.addColorStop(0,'rgba(120,200,255,.25)');g.addColorStop(.6,'rgba(255,120,80,.18)');g.addColorStop(1,'transparent');c.fillStyle=g;c.beginPath();c.arc(x,y,s*.42,0,7);c.fill();const a=t*3;c.strokeStyle='rgba(160,220,255,.55)';c.lineWidth=3;c.beginPath();c.moveTo(x-Math.cos(a)*s*.45,y-Math.sin(a)*s*.45);c.lineTo(x+Math.cos(a)*s*.45,y+Math.sin(a)*s*.45);c.stroke();glowStar(c,x,y,s*.03,[200,235,255])}
+ else{const g=c.createRadialGradient(x,y,s*.06,x,y,s*.34);g.addColorStop(0,'rgba(255,190,120,.0)');g.addColorStop(.35,'rgba(255,170,90,.75)');g.addColorStop(.6,'rgba(180,120,255,.35)');g.addColorStop(1,'transparent');c.save();c.translate(x,y);c.scale(1,.42);const g0=c.createRadialGradient(0,0,s*.06,0,0,s*.36);g0.addColorStop(0,'rgba(255,190,120,0)');g0.addColorStop(.35,'rgba(255,170,90,.8)');g0.addColorStop(.65,'rgba(180,120,255,.35)');g0.addColorStop(1,'rgba(180,120,255,0)');c.fillStyle=g0;c.beginPath();c.arc(0,0,s*.36,0,7);c.fill();c.restore();c.fillStyle='#000';c.beginPath();c.arc(x,y,s*.09,0,7);c.fill();c.strokeStyle='rgba(255,200,140,.8)';c.lineWidth=2;c.beginPath();c.arc(x,y,s*.1,0,7);c.stroke()}}
+function drawDex(cv,key){const{c,w,h}=fitCanvas(cv);skyBG(c,w,h);drawRemnant(c,w,h,key,0.6)}
+
+// ---------- 화면 전환 ----------
+function show(v){document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='v-'+v));document.querySelectorAll('#nav button').forEach(b=>b.setAttribute('aria-current',b.dataset.v===v));if(v==='dex')renderDex();if(v==='log')renderLog();if(v==='lab')labDraw();if(location.hash!=='#'+v)history.replaceState(null,'','#'+v)}
+$('#nav').addEventListener('click',e=>{const b=e.target.closest('button');if(b)show(b.dataset.v)});
+
+// ---------- 저장 ----------
+let records=store.get('ps-records',[]),dex=store.get('ps-dex',{});
+const saveAll=()=>{store.set('ps-records',records);store.set('ps-dex',dex)};
+
+// ---------- 설정 화면 ----------
+const MISSIONS=[['free','자유 플레이'],...KEYS.map(k=>[k,ENDS[k].name+' 만들기'])];
+let mission='free';
+$('#missions').innerHTML=MISSIONS.map(([k,n])=>`<button class="pick" data-m="${k}" aria-pressed="${k==='free'}">${n}</button>`).join('');
+$('#missions').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;mission=b.dataset.m;document.querySelectorAll('#missions .pick').forEach(x=>x.setAttribute('aria-pressed',x===b))});
+$('#predict').innerHTML+=KEYS.map(k=>`<option value="${k}">${ENDS[k].name}</option>`).join('');
+
+// ---------- 강착 게임 ----------
+const gcv=$('#game');let G=null,gw=0,gh=0,gc=null;
+const keys={};
+addEventListener('keydown',e=>{if(G&&G.on&&e.key.startsWith('Arrow')){keys[e.key]=1;e.preventDefault()}});
+addEventListener('keyup',e=>{keys[e.key]=0});
+function ptr(e){if(!G)return;const r=gcv.getBoundingClientRect();G.tx=e.clientX-r.left;G.ty=e.clientY-r.top;G.ptr=true}
+gcv.addEventListener('pointermove',ptr);gcv.addEventListener('pointerdown',ptr);
+const starR=M=>6+9*Math.log10(1+M*10);
+function spawn(edge){const r=Math.random;const big=r()<0.16;let x,y;
+ if(edge){const s=r()*4|0;x=s===0?-10:s===1?gw+10:r()*gw;y=s===2?-10:s===3?gh+10:r()*gh}else{do{x=r()*gw;y=r()*gh}while(G&&Math.hypot(x-G.x,y-G.y)<120)}
+ const a=r()*7;return{x,y,vx:Math.cos(a)*15,vy:Math.sin(a)*15,v:big?3:1,r:big?7+r()*3:3+r()*2,h:r()<.6?330:175,ph:r()*7}}
+function startGame(){const s=fitCanvas(gcv);gw=s.w;gh=s.h;gc=s.c;
+ G={on:true,M:0.02,x:gw/2,y:gh/2,tx:gw/2,ty:gh/2,ptr:false,dur:+$('#dur').value,left:+$('#dur').value,parts:[],trail:[],eaten:0,push:0,predict:$('#predict').value,mission,hint:$('#hint').checked};
+ for(let i=0;i<95;i++)G.parts.push(spawn(false));
+ $('#setup').hidden=true;$('#hud').hidden=false;$('#evoWrap').hidden=true;
+ $('#hMission').hidden=mission==='free';$('#hMissionT').textContent=mission==='free'?'':ENDS[mission].name+' 만들기';
+ $('#hHint').hidden=!G.hint;
+ last=performance.now();requestAnimationFrame(loop)}
+let last=0;
+function loop(now){if(!G||!G.on)return;const dt=Math.min(.05,(now-last)/1000);last=now;step(dt);render();if(G.on)requestAnimationFrame(loop)}
+function step(dt){const s=fitCanvas(gcv);gw=s.w;gh=s.h;gc=s.c;
+ G.left-=dt;if(G.left<=0){G.left=0;finishGame();return}
+ let ax=(keys.ArrowRight?1:0)-(keys.ArrowLeft?1:0),ay=(keys.ArrowDown?1:0)-(keys.ArrowUp?1:0);
+ const sp=250;if(ax||ay){const n=Math.hypot(ax,ay);G.x+=ax/n*sp*dt;G.y+=ay/n*sp*dt;G.tx=G.x;G.ty=G.y}
+ else{const dx=G.tx-G.x,dy=G.ty-G.y,d=Math.hypot(dx,dy);if(d>1){const m=Math.min(d,sp*dt);G.x+=dx/d*m;G.y+=dy/d*m}}
+ G.x=clamp(G.x,0,gw);G.y=clamp(G.y,0,gh);
+ const R=starR(G.M);G.push=clamp((Math.log10(G.M)-0.35)/1.1,0,1.4);const Rp=R+50+30*G.push;
+ for(let i=G.parts.length-1;i>=0;i--){const p=G.parts[i];
+  // 중력: 원시별 쪽으로 약하게 끌려옴
+  const dx=G.x-p.x,dy=G.y-p.y,d=Math.hypot(dx,dy)||1;
+  const pull=500/(d+60);p.vx+=dx/d*pull*dt*0.4;p.vy+=dy/d*pull*dt*0.4;
+  if(G.push>0&&d<Rp*1.8){const f=G.push*420*(1-d/(Rp*1.8));p.vx-=dx/d*f*dt;p.vy-=dy/d*f*dt}
+  p.vx+=Math.cos(p.ph+now0()*.3)*6*dt;p.vy+=Math.sin(p.ph+now0()*.3)*6*dt;
+  const v=Math.hypot(p.vx,p.vy),vm=60+G.push*140;if(v>vm){p.vx*=vm/v;p.vy*=vm/v}
+  p.x+=p.vx*dt;p.y+=p.vy*dt;
+  if(d<R+p.r*0.6){G.M+=p.v*(0.012+0.04*G.M)/(1+(G.M/25)**2);G.eaten++;G.parts.splice(i,1);G.parts.push(spawn(true));continue}
+  if(p.x<-40||p.x>gw+40||p.y<-40||p.y>gh+40){G.parts.splice(i,1);G.parts.push(spawn(true))}}
+ G.M=Math.min(G.M,150);
+ $('#hMass').textContent=fmtM(G.M);$('#hTime').textContent=Math.ceil(G.left);
+ if(G.hint)$('#hHintT').textContent=ENDS[endOf(G.M)].name;
+ $('#warn').classList.toggle('on',G.push>0.15)}
+const now0=()=>performance.now()/1000;
+function render(){const c=gc,w=gw,h=gh,t=now0();skyBG(c,w,h);
+ const neb=c.createRadialGradient(w*.7,h*.6,0,w*.7,h*.6,Math.max(w,h)*.7);neb.addColorStop(0,'rgba(255,95,162,.10)');neb.addColorStop(.5,'rgba(63,224,208,.05)');neb.addColorStop(1,'transparent');c.fillStyle=neb;c.fillRect(0,0,w,h);
+ for(const p of G.parts){const g=c.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*2.2);g.addColorStop(0,`hsla(${p.h},90%,75%,.9)`);g.addColorStop(1,`hsla(${p.h},90%,60%,0)`);c.fillStyle=g;c.beginPath();c.arc(p.x,p.y,p.r*2.2,0,7);c.fill()}
+ const R=starR(G.M),T=G.M<0.08?1800+G.M*8000:Math.min(msT(G.M),30000)*0.85,col=kRGB(G.M<0.3?Math.max(T,2000):T);
+ if(G.push>0){c.strokeStyle=`rgba(255,255,255,${.12+.1*Math.sin(t*6)})`;c.lineWidth=2;c.beginPath();c.arc(G.x,G.y,R+50+30*G.push,0,7);c.stroke()}
+ // 원반
+ c.save();c.translate(G.x,G.y);c.rotate(t*.6);c.strokeStyle=rgb(col,.25);c.lineWidth=R*.35;c.beginPath();c.ellipse(0,0,R*1.9,R*.7,0,0,7);c.stroke();c.restore();
+ glowStar(c,G.x,G.y,R,col)}
+function finishGame(){if(!G.on)return;G.on=false;$('#hud').hidden=true;$('#warn').classList.remove('on');runEvo(G.M,{mission:G.mission,predict:G.predict})}
+$('#startBtn').addEventListener('click',startGame);
+$('#stopBtn').addEventListener('click',()=>{if(G&&G.on)finishGame()});
+function idleScreen(){const s=fitCanvas(gcv);skyBG(s.c,s.w,s.h);const c=s.c,w=s.w,h=s.h;for(let i=0;i<5;i++){const g=c.createRadialGradient(w*(.2+i*.15),h*(.3+(i%2)*.35),0,w*(.2+i*.15),h*(.3+(i%2)*.35),w*.25);g.addColorStop(0,i%2?'rgba(63,224,208,.12)':'rgba(255,95,162,.14)');g.addColorStop(1,'transparent');c.fillStyle=g;c.fillRect(0,0,w,h)}}
+
+// ---------- 진화 재생 ----------
+const starCv=$('#starCv'),hr=makeHR($('#hrCv'));let E=null;
+function runEvo(M,opt={}){const tr=buildTrack(M);
+ E={tr,M,opt,seg:1,f:0,speed:1,done:false,boomT:-1,t0:now0(),endShown:false,pts:[{T:tr.P[0].T,L:tr.P[0].L}]};
+ $('#stage').hidden=true;$('#evoWrap').hidden=false;$('#endCard').hidden=true;$('#speedBtn').textContent='2배속';
+ $('#evoTitle').textContent=`나의 별 · ${fmtM(M)} M☉`;
+ $('#gLife').textContent=fmtY(tr.t);$('#hrNote').textContent=tr.e==='bd'?'':'(궤적은 교육용 근사)';
+ // 기록
+ const key=tr.e,rec={n:records.length+1,mission:opt.mission||'free',predict:opt.predict||'',mass:+M.toPrecision(3),end:key,life:tr.t};records.push(rec);
+ dex[key]=dex[key]||[];dex[key].push(+M.toPrecision(3));saveAll();
+ last=performance.now();requestAnimationFrame(evoLoop);
+ $('#evoWrap').scrollIntoView({behavior:'smooth',block:'start'})}
+function evoLoop(now){if(!E)return;const dt=Math.min(.05,(now-last)/1000)*E.speed;last=now;
+ const P=E.tr.P;
+ if(!E.done){const seg=P[E.seg];E.f+=dt/(seg.w*1.3);
+  while(E.f>=1&&!E.done){E.pts.push({T:P[E.seg].T,L:P[E.seg].L});E.f-=1;E.seg++;if(E.seg>=P.length){E.done=true;E.seg=P.length-1;E.f=1;E.endAt=now0()}}}
+ drawEvo();
+ if(E.done&&!E.endShown&&(!E.tr.boom||now0()-E.endAt>2.6/E.speed))showEnd();
+ if(!E.stop)requestAnimationFrame(evoLoop)}
+function curState(){const P=E.tr.P,i=E.seg,a=P[i-1]||P[0],b=P[i],f=E.done?1:clamp(E.f,0,1);
+ return{T:lerp(a.T,b.T,f),L:lerp(a.L,b.L,f),age:lerp(a.age,b.age,f),stage:(f<0.02&&i>1?a:b).stage}}
+function drawEvo(){const s=curState(),key=E.tr.e,col=kRGB(Math.pow(10,s.T)),{c,w,h}=fitCanvas(starCv),t=now0();
+ skyBG(c,w,h);
+ let stage=s.stage,annot=null;
+ const boomP=E.tr.boom&&E.done?(t-E.endAt)*E.speed:-1;
+ if(boomP>=0){
+  if(boomP<1.2){const k=boomP/1.2;glowStar(c,w/2,h/2,Math.min(w,h)*(.1+k*.5),[255,240,220],1-k*.6);stage=key==='ns'?'초신성 폭발!':(E.M<40?'초신성 폭발 또는 직접 붕괴!':'중심핵 붕괴!')}
+  else{drawRemnant(c,w,h,key,t);stage=key==='ns'?'중성자별: 지름 약 20 km의 초고밀도 천체':'블랙홀: 빛조차 빠져나오지 못함'}
+  annot=key==='ns'?'남은 중성자별은 매우 작아\nH-R도 영역 밖에 있어요':'블랙홀은 빛을 내지 않아\nH-R도에 표시할 수 없어요'}
+ else if(E.done&&key==='rd'){glowStar(c,w/2,h/2,Math.min(w,h)*.13,col)}
+ else{const Rs=Math.sqrt(Math.pow(10,s.L))/Math.pow(Math.pow(10,s.T)/5772,2);let rp=clamp(18*Math.pow(Rs,0.3),2.5,Math.min(w,h)*.42);
+  if(key==='bd')rp=Math.min(w,h)*.12;
+  const pn=stage.includes('행성상')||stage.includes('백색왜성');
+  if(pn){const k=stage.includes('행성상')?(E.done?1:E.f):1;for(let i=0;i<3;i++){c.strokeStyle=`rgba(${i?'90,220,210':'255,110,170'},${(.55-i*.13)*(stage.includes('식어')?0.6:1)})`;c.lineWidth=Math.min(w,h)*(.05-i*.012);c.beginPath();c.ellipse(w/2,h/2,Math.min(w,h)*(.08+.24*k+i*.03),Math.min(w,h)*(.06+.19*k+i*.025),.4,0,7);c.stroke()}}
+  glowStar(c,w/2,h/2,rp,key==='bd'?[160,75,50]:col);
+  c.fillStyle='#a9a5d6';c.font='12px "Noto Sans KR",sans-serif';c.textAlign='left';
+  c.fillText(`표면 온도 약 ${Math.round(Math.pow(10,s.T)/100)*100} K`,12,h-34);c.fillText(`광도 태양의 ${fmtL(s.L)}배 · 반지름 ${sig(Rs,2)}배`,12,h-16)}
+ const pts=E.pts.concat(boomP>=0?[]:[{T:s.T,L:s.L}]);
+ hr.draw([{pts,color:ENDS[key].color}],boomP>=1.2?null:{T:s.T,L:s.L,color:rgb(col)},annot);
+ $('#stageName').textContent=stage;
+ const tl=E.tr.t||1e10,age=s.age;$('#gAge').textContent=age<=0?'0년':fmtY(age);$('#gBar').style.width=clamp(age/tl*100,0,100)+'%'}
+function showEnd(){E.endShown=true;const key=E.tr.e,d=ENDS[key],o=E.opt;
+ const ok=o.mission&&o.mission!=='free'&&o.mission!=='lab'?(o.mission===key?`<span class="badge" style="background:var(--teal);color:#08201d">미션 성공</span>`:`<span class="badge" style="background:var(--mag);color:#2a0617">미션 실패: 목표는 ${ENDS[o.mission].name}</span>`):'';
+ const pr=o.predict?(o.predict===key?'예상이 맞았어요.':`예상은 ${ENDS[o.predict].name}이었어요. 무엇이 달랐을까요?`):'';
+ const first=dex[key].length===1;
+ const mis=key==='bd'?'':`<p class="tip" style="margin-top:10px">${key==='rd'?'적색왜성의 주계열 수명은 ':'이 별의 주계열 수명은 '}${fmtY(E.tr.t)}. 태양(100억 년)과 비교해 보세요. 질량이 클수록 광도가 훨씬 빠르게 커져 연료를 더 빨리 써요.</p>`;
+ $('#endCard').innerHTML=`<div class="ending"><canvas id="endCv"></canvas><div>
+  <div>${ok}<span class="badge" style="background:${d.color};color:#120f2a">${first?'도감 새 등록!':'도감 기록 추가'}</span></div>
+  <h2 style="font-size:38px;margin:8px 0 4px">${d.name}</h2>
+  <div class="note">${esc(fmtM(E.M))} M☉ · ${d.path}</div>
+  ${pr?`<p style="margin:8px 0 0">${pr}</p>`:''}
+  <p class="tip" style="margin-top:10px">${d.tip}</p>${mis}
+  <div class="note" style="margin-top:8px">실제 천체: <b style="color:var(--ink)">${d.obj}</b> — 엔딩 도감에서 자세히 볼 수 있어요.</div>
+ </div></div>`;
+ $('#endCard').hidden=false;requestAnimationFrame(()=>drawDex($('#endCv'),key))}
+$('#speedBtn').addEventListener('click',()=>{if(!E)return;E.speed=E.speed===1?2:E.speed===2?4:1;$('#speedBtn').textContent=E.speed===4?'보통 속도':(E.speed*2)+'배속'});
+$('#skipBtn').addEventListener('click',()=>{if(!E)return;const P=E.tr.P;E.pts=P.map(p=>({T:p.T,L:p.L}));E.seg=P.length-1;E.f=1;if(!E.done){E.done=true;E.endAt=now0()-3}else E.endAt=Math.min(E.endAt,now0()-3);E.speed=1});
+$('#replayBtn').addEventListener('click',()=>{if(!E)return;const P=E.tr.P;Object.assign(E,{seg:1,f:0,done:false,endShown:false,speed:1,pts:[{T:P[0].T,L:P[0].L}]});$('#endCard').hidden=true;$('#speedBtn').textContent='2배속'});
+$('#againBtn').addEventListener('click',()=>{if(E)E.stop=true;E=null;$('#evoWrap').hidden=true;$('#stage').hidden=false;$('#setup').hidden=false;show('play');requestAnimationFrame(idleScreen);$('#stage').scrollIntoView({behavior:'smooth',block:'start'})});
+
+// ---------- 도감 ----------
+function renderDex(){const n=KEYS.filter(k=>dex[k]&&dex[k].length).length;$('#dexCount').textContent=`(${n} / 5)`;
+ $('#dexGrid').innerHTML=KEYS.map(k=>{const d=ENDS[k],got=dex[k]&&dex[k].length,ms=got?dex[k].slice().sort((a,b)=>a-b):[];
+  return`<div class="box dex ${got?'':'locked'}"><canvas data-k="${k}"></canvas><h3>${got?d.name:'???'}</h3><div class="note">질량 구간: ${got?d.range:'엔딩을 얻으면 공개'}</div>
+  ${got?`<p style="margin:8px 0 4px"><b>${d.obj}</b></p><dl class="facts">${d.facts.map(([a,b])=>`<dt>${a}</dt><dd>${b}</dd>`).join('')}</dl>
+  <div class="note">내가 달성한 질량: ${ms.slice(0,6).map(fmtM).join(', ')}${ms.length>6?' …':''} M☉</div>
+  <div class="note" style="margin-top:6px"><a href="https://images.nasa.gov/search?q=${encodeURIComponent(d.q)}" target="_blank" rel="noopener">NASA 관측 사진 보기 ↗</a></div>`:`<p class="note">아직 이 엔딩을 얻지 못했어요. 질량을 바꿔 다시 도전해 보세요.</p>`}</div>`}).join('');
+ requestAnimationFrame(()=>document.querySelectorAll('#dexGrid canvas').forEach(cv=>drawDex(cv,cv.dataset.k)))}
+
+// ---------- 기록지 ----------
+let sortMass=false;
+const mName=m=>m==='free'?'자유':m==='lab'?'실험실':ENDS[m]?ENDS[m].name:m;
+function renderLog(){const rows=sortMass?records.slice().sort((a,b)=>a.mass-b.mass):records;
+ $('#logTb').innerHTML=rows.length?rows.map(r=>`<tr><td class="n">${r.n}</td><td>${esc(mName(r.mission))}</td><td>${r.predict?esc(ENDS[r.predict].name):'—'}</td><td class="n">${esc(fmtM(r.mass))} M☉</td><td><span class="badge" style="background:${ENDS[r.end].color};color:#120f2a">${ENDS[r.end].name}</span></td><td class="n">${fmtY(r.life)}</td><td>${r.predict?(r.predict===r.end?'일치':'다름'):'—'}</td></tr>`).join(''):'<tr><td colspan="7" class="note">아직 기록이 없어요. 게임을 한 판 해 보세요.</td></tr>'}
+$('#sortBtn').addEventListener('click',()=>{sortMass=!sortMass;$('#sortBtn').textContent=sortMass?'플레이 순으로 정렬':'질량 순으로 정렬';renderLog()});
+$('#copyBtn').addEventListener('click',async()=>{const rows=(sortMass?records.slice().sort((a,b)=>a.mass-b.mass):records);const tsv=['회차\t미션\t예상\t달성 질량(M☉)\t엔딩\t주계열 수명'].concat(rows.map(r=>[r.n,mName(r.mission),r.predict?ENDS[r.predict].name:'',r.mass,ENDS[r.end].name,fmtY(r.life)].join('\t'))).join('\n');try{await navigator.clipboard.writeText(tsv);toast('표를 복사했어요. 시트에 붙여 넣으세요.')}catch(e){toast('복사가 막혀 있어요. 표를 직접 선택해 복사하세요.')}});
+let clearArm=false;$('#clearBtn').addEventListener('click',()=>{if(!clearArm){clearArm=true;$('#clearBtn').textContent='정말 지울까요? 한 번 더 누르기';setTimeout(()=>{clearArm=false;$('#clearBtn').textContent='기록 지우기'},3000);return}records=[];dex={};saveAll();clearArm=false;$('#clearBtn').textContent='기록 지우기';renderLog();toast('기록을 지웠어요.')});
+
+// ---------- 실험실 ----------
+const labHr=makeHR($('#labHr'));let labTracks=[];const LCOL=['#3fe0d0','#ffd166','#ff5fa2','#9be36b','#b48cff','#ff9a5a'];
+let labExact=null;const labMass=()=>labExact??Math.pow(10,+$('#labR').value);
+$('#presets').innerHTML=[0.05,0.3,1,5,20,40].map(m=>`<button class="pick" data-m="${m}">${m} M☉</button>`).join('');
+$('#presets').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;$('#labR').value=Math.log10(+b.dataset.m);labExact=+b.dataset.m;labUpd()});
+$('#labR').addEventListener('input',()=>{labExact=null;labUpd()});
+function labUpd(){const M=labMass();$('#labM').textContent=fmtM(M);const e=endOf(M);
+ $('#labNow').innerHTML=M<0.08?`수소 핵융합을 하지 못함 → <b style="color:var(--ink)">갈색왜성</b>`:`주계열 표면 온도 약 ${Math.round(msT(M)/100)*100} K · 광도 태양의 ${fmtL(Math.log10(msL(M)))}배 · 수명 ${fmtY(life(M))} → <b style="color:var(--ink)">${ENDS[e].name}</b>`;labDraw()}
+function labDraw(){const M=labMass();const cur=M<0.08?null:{T:Math.log10(msT(M)),L:Math.log10(msL(M)),color:rgb(kRGB(msT(M)))};labHr.draw(labTracks.map(t=>({pts:t.tr.P.map(p=>({T:p.T,L:p.L})),color:t.color,label:fmtM(t.M)+' M☉'})),cur);mlDraw()}
+$('#labAdd').addEventListener('click',()=>{const M=labMass();if(labTracks.length>=6)labTracks.shift();labTracks.push({M,tr:buildTrack(M),color:LCOL[labTracks.length%6]});labTable();labDraw()});
+$('#labClear').addEventListener('click',()=>{labTracks=[];labTable();labDraw()});
+$('#labPlay').addEventListener('click',()=>{show('play');if(G)G.on=false;$('#setup').hidden=true;$('#hud').hidden=true;if(E)E.stop=true;runEvo(labMass(),{mission:'lab'})});
+function labTable(){$('#labTb').innerHTML=labTracks.length?labTracks.map(t=>{const M=t.M,bd=M<0.08;return`<tr><td><b style="color:${t.color}">${fmtM(M)} M☉</b></td><td class="n">${bd?'—':Math.round(msT(M)/100)*100+' K'}</td><td class="n">${bd?'—':'태양의 '+fmtL(Math.log10(msL(M)))+'배'}</td><td class="n">${fmtY(life(M))}</td><td>${ENDS[endOf(M)].name}</td></tr>`}).join(''):'<tr><td colspan="5" class="note">궤적을 추가하면 여기에 쌓여요.</td></tr>'}
+const mlSvg=$('#mlSvg');
+function mlDraw(){const W=mlSvg.clientWidth,H=mlSvg.clientHeight;if(!W)return;const p={l:52,r:14,t:14,b:36};
+ const x=m=>p.l+(Math.log10(m)+1)/(Math.log10(80)+1)*(W-p.l-p.r),y=t=>p.t+(13-Math.log10(t))/(13-6)*(H-p.t-p.b);
+ let s='';for(const m of[0.1,0.3,1,3,10,30]){s+=`<line x1="${x(m)}" x2="${x(m)}" y1="${p.t}" y2="${H-p.b}" stroke="#2e2858"/><text x="${x(m)}" y="${H-p.b+16}" fill="#a9a5d6" font-size="11" text-anchor="middle">${m}</text>`}
+ const yl=[[1e6,'100만'],[1e8,'1억'],[1e10,'100억'],[1e12,'1조']];for(const[t,n]of yl){s+=`<line x1="${p.l}" x2="${W-p.r}" y1="${y(t)}" y2="${y(t)}" stroke="#2e2858"/><text x="${p.l-6}" y="${y(t)+4}" fill="#a9a5d6" font-size="11" text-anchor="end">${n}</text>`}
+ s+=`<line x1="${p.l}" x2="${W-p.r}" y1="${y(UNIVERSE)}" y2="${y(UNIVERSE)}" stroke="#ffd166" stroke-dasharray="5 4"/><text x="${W-p.r-4}" y="${y(UNIVERSE)-6}" fill="#ffd166" font-size="11" text-anchor="end">우주 나이 138억 년</text>`;
+ let d='';for(let i=0;i<=120;i++){const m=Math.pow(10,lerp(Math.log10(0.1),Math.log10(80),i/120));const t=life(m);d+=(i?'L':'M')+x(m).toFixed(1)+','+y(Math.min(t,1e13)).toFixed(1)}
+ s+=`<path d="${d}" fill="none" stroke="#3fe0d0" stroke-width="2.5"/>`;
+ for(const t of labTracks)if(t.M>=0.1){s+=`<circle cx="${x(t.M)}" cy="${y(Math.min(life(t.M),1e13))}" r="6" fill="${t.color}" stroke="#0c0a1f" stroke-width="2"/>`}
+ s+=`<text x="${(p.l+W-p.r)/2}" y="${H-4}" fill="#a9a5d6" font-size="12" text-anchor="middle">질량 (M☉)</text><text transform="translate(13 ${(p.t+H-p.b)/2}) rotate(-90)" fill="#a9a5d6" font-size="12" text-anchor="middle">주계열 수명 (년)</text>`;
+ mlSvg.setAttribute('viewBox',`0 0 ${W} ${H}`);mlSvg.innerHTML=s}
+
+// ---------- 시작 ----------
+const ro=new ResizeObserver(()=>{if(!G||!G.on){if(!$('#stage').hidden&&!$('#setup').hidden)idleScreen()}if($('#v-lab').classList.contains('on'))labDraw();if(E&&E.done&&E.endShown){drawEvo()}});
+ro.observe(document.body);
+labUpd();
+const h0=location.hash.slice(1);show(['play','lab','dex','log','cards'].includes(h0)?h0:'play');
+requestAnimationFrame(idleScreen);
+if(document.fonts)document.fonts.ready.then(()=>{idleScreen()});
+window.__ps={runEvo,buildTrack,life,endOf,msT,msL,get E(){return E},get G(){return G},show};
+}
+</script>
+</body>
+</html>
